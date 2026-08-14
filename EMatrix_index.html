@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="EMatrix">
+<title>EMatrix</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;color:#222}body{overflow:hidden;background:#fff}.app{height:100vh;display:flex;flex-direction:column}.header{text-align:center;padding:12px 8px 7px}.title{margin:0;font-size:27px;font-weight:700}.today{font-size:12px;color:#777;margin-top:3px}.matrix{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;padding:4px}.q{min-width:0;min-height:0;padding:7px;border-radius:7px;display:flex;flex-direction:column}.q h2{font-size:16px;margin:0}.q p{font-size:8px;color:#555;margin:3px 0 6px}.q1{background:#ffd6d6}.q2{background:#fff0b8}.q3{background:#d9f2d9}.q4{background:#dbe9ff}.list{flex:1;min-height:0;overflow:auto;padding-top:3px}.empty{height:100%;display:flex;align-items:center;justify-content:center;color:#777;font-size:11px}.task{margin-bottom:4px}.main{display:flex;align-items:flex-start;gap:4px}.iconbtn{border:0;background:none;padding:0}.box{width:14px;height:14px;border:1px solid #555;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:10px}.box.done{background:#555;color:white}.expand{width:13px;color:#666}.placeholder{width:13px}.content{flex:1;min-width:0;font-size:11px;line-height:1.25}.name{overflow-wrap:anywhere}.doneText{text-decoration:line-through;color:#777}.due{font-size:9px;color:#777;margin-left:3px}.overdue{color:#c62828;font-weight:600}.subtasks{margin-left:34px;margin-top:2px}.sub{display:flex;gap:4px;font-size:9px;margin-bottom:2px}.subbox{width:12px;height:12px;border:1px solid #777;border-radius:2px;background:none;padding:0;font-size:8px}.subbox.done{background:#777;color:white}.bottom{padding:5px 16px 10px}.add{width:100%;padding:11px;border:0;border-radius:9px;background:#007aff;color:white;font-size:15px;font-weight:600}.modalbg{position:fixed;inset:0;background:#0005;display:none;align-items:flex-end}.modalbg.show{display:flex}.modal{background:white;width:100%;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:20px}.modal h2{margin:0 0 18px;font-size:21px}.field{margin-bottom:14px}.label{display:block;font-size:12px;color:#555;font-weight:600;margin-bottom:5px}.input,.select{width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;font-size:15px;background:#fafafa}.check{display:flex;gap:8px;align-items:center;font-size:13px;margin-bottom:14px}.editor{border-top:1px solid #eee;padding-top:12px}.editorTitle{font-weight:600;font-size:13px;margin-bottom:7px}.subedit{display:flex;gap:5px;margin-bottom:5px}.subedit input{flex:1;min-width:0;padding:8px;border:1px solid #ccc;border-radius:7px}.small{border:0;border-radius:7px;padding:7px 9px}.addsub{border:0;background:none;color:#007aff;padding:5px 0}.buttons{display:flex;gap:7px;margin-top:20px}.buttons button{flex:1;padding:10px;border-radius:8px;font-weight:600}.cancel{border:1px solid #ccc;background:white}.save{border:0;background:#007aff;color:white}.delete{border:1px solid #e0b0b0;background:#fff5f5;color:#c62828}.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="header"><h1 class="title">EMatrix</h1><div class="today" id="today"></div></header>
+<main class="matrix">
+<section class="q q1"><h2>Do First</h2><p>Urgent + Important</p><div class="list" id="doFirst"></div></section>
+<section class="q q2"><h2>Delegate</h2><p>Urgent + Not Important</p><div class="list" id="delegate"></div></section>
+<section class="q q3"><h2>Schedule</h2><p>Not Urgent + Important</p><div class="list" id="schedule"></div></section>
+<section class="q q4"><h2>Eliminate</h2><p>Not Urgent + Not Important</p><div class="list" id="eliminate"></div></section>
+</main>
+<div class="bottom"><button class="add" onclick="addTask()">+ Add Task</button></div>
+</div>
+
+<div class="modalbg" id="modal">
+<div class="modal">
+<h2 id="modalTitle">Add Task</h2>
+<div class="field"><label class="label">Task</label><input class="input" id="title" placeholder="What needs to be done?"></div>
+<div class="field"><label class="label">Quadrant</label><select class="select" id="quadrant"><option value="doFirst">Do First</option><option value="delegate">Delegate</option><option value="schedule">Schedule</option><option value="eliminate">Eliminate</option></select></div>
+<div class="field"><label class="label">Due Date</label><input class="input" id="due" type="date"></div>
+<div class="check"><input id="project" type="checkbox"><label for="project">This is a project with subtasks</label></div>
+<div class="editor hidden" id="editor"><div class="editorTitle">Subtasks</div><div id="sublist"></div><button class="addsub" onclick="newSub()">+ Add subtask</button></div>
+<div class="buttons"><button class="delete hidden" id="del" onclick="deleteTask()">Delete</button><button class="cancel" onclick="closeModal()">Cancel</button><button class="save" onclick="saveTask()">Save</button></div>
+</div></div>
+
+<script>
+let tasks=JSON.parse(localStorage.getItem("ematrixTasks")||"[]"), editing=null;
+const ids={doFirst:"doFirst",delegate:"delegate",schedule:"schedule",eliminate:"eliminate"};
+const uid=()=>Date.now()+"_"+Math.random().toString(36).slice(2);
+function persist(){localStorage.setItem("ematrixTasks",JSON.stringify(tasks))}
+function todayKey(){let d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function dueText(s){if(!s)return"";let p=s.split("-"),d=new Date(+p[0],+p[1]-1,+p[2]),n=new Date(),k=todayKey();if(s===k)return"Today";let t=new Date(n);t.setDate(t.getDate()+1);if(s===key(t))return"Tomorrow";return d.toLocaleDateString(undefined,{month:"short",day:"numeric"})}
+function key(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function render(){
+Object.values(ids).forEach(x=>document.getElementById(x).innerHTML="");
+["doFirst","delegate","schedule","eliminate"].forEach(q=>{
+let box=document.getElementById(ids[q]), arr=tasks.filter(t=>t.quadrant===q).sort((a,b)=>a.completed-b.completed);
+if(!arr.length){box.innerHTML='<div class="empty">No tasks</div>';return}
+arr.forEach(t=>box.appendChild(row(t)));
+});
+}
+function row(t){
+let w=document.createElement("div");w.className="task",m=document.createElement("div");m.className="main";
+let cb=document.createElement("button");cb.className="iconbtn";cb.onclick=()=>toggle(t.id);let b=document.createElement("span");b.className="box"+(t.completed?" done":"");b.textContent=t.completed?"✓":"";cb.appendChild(b);m.appendChild(cb);
+if(t.isProject){let e=document.createElement("button");e.className="iconbtn expand";e.textContent=t.expanded?"⌄":"›";e.onclick=()=>{t.expanded=!t.expanded;persist();render()};m.appendChild(e)}else{let p=document.createElement("span");p.className="placeholder";m.appendChild(p)}
+let c=document.createElement("div");c.className="content";c.onclick=()=>editTask(t.id);let line=document.createElement("div"),n=document.createElement("span");n.className="name"+(t.completed?" doneText":"");n.textContent=t.title;line.appendChild(n);
+if(t.dueDate){let d=document.createElement("span");d.className="due";if(t.dueDate<todayKey()&&!t.completed)d.classList.add("overdue");d.textContent="· "+dueText(t.dueDate);line.appendChild(d)}c.appendChild(line);m.appendChild(c);w.appendChild(m);
+if(t.isProject&&t.expanded){let ss=document.createElement("div");ss.className="subtasks";(t.subtasks||[]).forEach(s=>{let r=document.createElement("div");r.className="sub";let sb=document.createElement("button");sb.className="subbox"+(s.completed?" done":"");sb.textContent=s.completed?"✓":"";sb.onclick=()=>toggleSub(t.id,s.id);let tx=document.createElement("span");tx.textContent=s.title;if(s.completed)tx.className="doneText";r.append(sb,tx);ss.appendChild(r)});w.appendChild(ss)}
+return w
+}
+function addTask(){editing=null;document.getElementById("modalTitle").textContent="Add Task";document.getElementById("title").value="";document.getElementById("quadrant").value="doFirst";document.getElementById("due").value="";document.getElementById("project").checked=false;document.getElementById("editor").classList.add("hidden");document.getElementById("sublist").innerHTML="";document.getElementById("del").classList.add("hidden");document.getElementById("modal").classList.add("show")}
+function editTask(id){let t=tasks.find(x=>x.id===id);if(!t)return;editing=id;document.getElementById("modalTitle").textContent="Edit Task";document.getElementById("title").value=t.title;document.getElementById("quadrant").value=t.quadrant;document.getElementById("due").value=t.dueDate||"";document.getElementById("project").checked=!!t.isProject;document.getElementById("del").classList.remove("hidden");let ed=document.getElementById("editor");ed.classList.toggle("hidden",!t.isProject);document.getElementById("sublist").innerHTML="";(t.subtasks||[]).forEach(s=>subInput(s));document.getElementById("modal").classList.add("show")}
+document.getElementById("project").onchange=e=>document.getElementById("editor").classList.toggle("hidden",!e.target.checked);
+function subInput(s){let r=document.createElement("div");r.className="subedit";let i=document.createElement("input");i.value=s.title;i.dataset.id=s.id;let b=document.createElement("button");b.className="small";b.textContent="Remove";b.onclick=()=>r.remove();r.append(i,b);document.getElementById("sublist").appendChild(r)}
+function newSub(){subInput({id:uid(),title:""})}
+function saveTask(){
+let title=document.getElementById("title").value.trim();if(!title){alert("Please enter a task.");return}
+let isProject=document.getElementById("project").checked, subs=Array.from(document.querySelectorAll("#sublist input")).map(i=>({id:i.dataset.id||uid(),title:i.value.trim(),completed:false})).filter(s=>s.title);
+if(editing){let t=tasks.find(x=>x.id===editing);t.title=title;t.quadrant=document.getElementById("quadrant").value;t.dueDate=document.getElementById("due").value;t.isProject=isProject;t.subtasks=isProject?subs:[];if(t.subtasks.length)t.completed=t.subtasks.every(s=>s.completed)}else tasks.push({id:uid(),title,quadrant:document.getElementById("quadrant").value,dueDate:document.getElementById("due").value,isProject,completed:false,expanded:false,subtasks:subs});
+persist();render();closeModal()
+}
+function deleteTask(){if(editing&&confirm("Delete this task?")){tasks=tasks.filter(t=>t.id!==editing);persist();render();closeModal()}}
+function closeModal(){document.getElementById("modal").classList.remove("show");editing=null}
+function toggle(id){let t=tasks.find(x=>x.id===id);if(!t)return;t.completed=!t.completed;if(t.isProject&&t.completed)(t.subtasks||[]).forEach(s=>s.completed=true);persist();render()}
+function toggleSub(tid,sid){let t=tasks.find(x=>x.id===tid),s=t?.subtasks?.find(x=>x.id===sid);if(!s)return;s.completed=!s.completed;t.completed=t.subtasks.length>0&&t.subtasks.every(x=>x.completed);persist();render()}
+document.getElementById("modal").onclick=e=>{if(e.target.id==="modal")closeModal()};
+document.getElementById("today").textContent=new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"});
+render();
+</script>
+</body>
+</html>
